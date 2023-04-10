@@ -1,0 +1,12 @@
+numpy
+h5parm>=0.0.10
+scipy
+astropy
+matplotlib
+cmocean
+tqdm
+jax
+jaxlib
+tables
+tensorflow_probability
+pytest
