@@ -125,9 +125,9 @@ def build_ionosphere_tomographic_kernel(x0: jnp.ndarray, earth_centre: jnp.ndarr
         fed_kernels = [tfp.math.psd_kernels.ExponentiatedQuadratic(amplitude=fed_sigma, length_scale=fed_l)
                        for fed_sigma, fed_l in zip(fed_sigmas, fed_ls)]
         if northern_hemisphere:
-            wind_velocities = [jnp.asarray([-0.150, 0.030, 0.])]
+            wind_velocities = [jnp.asarray([-0.200, 0.030, 0.])]
         else:
-            wind_velocities = [jnp.asarray([-0.150, -0.030, 0.])]
+            wind_velocities = [jnp.asarray([-0.200, -0.030, 0.])]
     elif specification == 'dawn':  # E, F layers
         bottoms = [90., 150.]  # km
         widths = [10., 100.]  # km

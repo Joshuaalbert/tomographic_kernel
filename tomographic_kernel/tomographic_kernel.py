@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import NamedTuple, Tuple, Optional, Literal, List
+from typing import NamedTuple, Tuple, Optional, List
 
 import jax.numpy as jnp
 import tensorflow_probability.substrates.jax as tfp
@@ -9,7 +9,6 @@ from jax.lax import scan
 logger = getLogger(__name__)
 
 TEC_CONV = -8.4479745e6  # Hz/mTECU
-KERNEL_SCALE = 0.1  # (1e9*1e3*1e-16*1e3)
 
 
 def broadcast_leading_dim(*arrays):
@@ -403,7 +402,7 @@ class MultiLayerTomographicKernel(TomographicKernel):
                  fed_kernels: List[tfp.math.psd_kernels.PositiveSemidefiniteKernel],
                  fed_mus: List[jnp.ndarray],
                  wind_velocities: List[Optional[jnp.ndarray]] = None,
-                 S_marg: int = 25, compute_tec:bool=True):
+                 S_marg: int = 25, compute_tec: bool = True):
         self.x0 = x0
         self.earth_centre = earth_centre
         self.layer_kernels = []
