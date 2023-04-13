@@ -31,22 +31,23 @@ import numpy as np
 from tqdm import tqdm
 from timeit import default_timer
 
-ARRAYS = {'lofar': DataPack.lofar_array_hba,
-          'dsa2000W': './dsa2000.W.cfg',
-          'dsa2000W10': './dsa2000.W.10.cfg',
-          'dsa2000W_200m_grid': './dsa2000.W.200m_grid.cfg',
-          'dsa2000W_300m_grid': './dsa2000.W.300m_grid.cfg',
-          'dsa2000W_400m_grid': './dsa2000.W.400m_grid.cfg',
-          'dsa2000W_500m_grid': './dsa2000.W.500m_grid.cfg',
-          'dsa2000W_600m_grid': './dsa2000.W.600m_grid.cfg',
-          'dsa2000W_700m_grid': './dsa2000.W.700m_grid.cfg',
-          'dsa2000W_800m_grid': './dsa2000.W.800m_grid.cfg',
-          'dsa2000W_900m_grid': './dsa2000.W.900m_grid.cfg',
-          'dsa2000W_1000m_grid': './dsa2000.W.1000m_grid.cfg',
-          'dsa2000W_1500m_grid': './dsa2000.W.1500m_grid.cfg',
-          'dsa2000W_2000m_grid': './dsa2000.W.2000m_grid.cfg',
-          'two_ovro_antennas': './two_ovro_antennas.cfg'
-          }
+ARRAYS = {
+    'lofar': DataPack.lofar_array_hba,
+    'dsa2000W': './dsa2000.W.cfg',
+    'dsa2000W10': './dsa2000.W.10.cfg',
+    'dsa2000W_200m_grid': './dsa2000.W.200m_grid.cfg',
+    'dsa2000W_300m_grid': './dsa2000.W.300m_grid.cfg',
+    'dsa2000W_400m_grid': './dsa2000.W.400m_grid.cfg',
+    'dsa2000W_500m_grid': './dsa2000.W.500m_grid.cfg',
+    'dsa2000W_600m_grid': './dsa2000.W.600m_grid.cfg',
+    'dsa2000W_700m_grid': './dsa2000.W.700m_grid.cfg',
+    'dsa2000W_800m_grid': './dsa2000.W.800m_grid.cfg',
+    'dsa2000W_900m_grid': './dsa2000.W.900m_grid.cfg',
+    'dsa2000W_1000m_grid': './dsa2000.W.1000m_grid.cfg',
+    'dsa2000W_1500m_grid': './dsa2000.W.1500m_grid.cfg',
+    'dsa2000W_2000m_grid': './dsa2000.W.2000m_grid.cfg',
+    'two_ovro_antennas': './two_ovro_antennas.cfg'
+}
 
 
 def get_num_directions(avg_spacing, field_of_view_diameter, min_n=1):
@@ -131,9 +132,9 @@ def build_ionosphere_tomographic_kernel(x0: jnp.ndarray, earth_centre: jnp.ndarr
     elif specification == 'dawn':  # E, F layers
         bottoms = [90., 150.]  # km
         widths = [10., 100.]  # km
-        fed_mus = [1e11 * 1e-10, 1e12 * 1e-10]  # 1E10 [electron / m^3]
+        fed_mus = [1e10 * 1e-10, 1e11 * 1e-10]  # 1E10 [electron / m^3]
         fed_sigmas = [fed_mus[0] * 0.1, fed_mus[1] * 0.2]  # 1E10 [electron / m^3]
-        fed_ls = [0.5, 10.]  # km
+        fed_ls = [0.5, 5.]  # km
 
         fed_kernels = [tfp.math.psd_kernels.MaternThreeHalves(amplitude=fed_sigma, length_scale=fed_l)
                        for fed_sigma, fed_l in zip(fed_sigmas, fed_ls)]
@@ -144,7 +145,7 @@ def build_ionosphere_tomographic_kernel(x0: jnp.ndarray, earth_centre: jnp.ndarr
     elif specification == 'dawn_challenge':  # E, F layers
         bottoms = [100., 250.]  # km
         widths = [20., 250.]  # km
-        fed_mus = [5e11 * 1e-10, 1e13 * 1e-10]  # 1E10 [electron / m^3]
+        fed_mus = [5e10 * 1e-10, 5e11 * 1e-10]  # 1E10 [electron / m^3]
         fed_sigmas = [fed_mus[0] * 0.2, fed_mus[1] * 0.5]  # 1E10 [electron / m^3]
         fed_ls = [0.3, 5.]  # km
 
@@ -157,7 +158,7 @@ def build_ionosphere_tomographic_kernel(x0: jnp.ndarray, earth_centre: jnp.ndarr
     elif specification == 'dusk':  # E, F layers
         bottoms = [90., 150.]  # km
         widths = [10., 100.]  # km
-        fed_mus = [1e11 * 1e-10, 1e12 * 1e-10]  # 1E10 [electron / m^3]
+        fed_mus = [1e10 * 1e-10, 1e11 * 1e-10]  # 1E10 [electron / m^3]
         fed_sigmas = [fed_mus[0] * 0.1, fed_mus[1] * 0.2]  # 1E10 [electron / m^3]
         fed_ls = [0.5, 10.]  # km
 
@@ -170,7 +171,7 @@ def build_ionosphere_tomographic_kernel(x0: jnp.ndarray, earth_centre: jnp.ndarr
     elif specification == 'dusk_challenge':  # E, F layers
         bottoms = [100., 250.]  # km
         widths = [20., 250.]  # km
-        fed_mus = [3e11 * 1e-10, 5e12 * 1e-10]  # 1E10 [electron / m^3]
+        fed_mus = [3e10 * 1e-10, 5e11 * 1e-10]  # 1E10 [electron / m^3]
         fed_sigmas = [fed_mus[0] * 0.2, fed_mus[1] * 0.5]  # 1E10 [electron / m^3]
         fed_ls = [0.3, 5.]  # km
 
@@ -194,10 +195,10 @@ def build_ionosphere_tomographic_kernel(x0: jnp.ndarray, earth_centre: jnp.ndarr
               f"\tfed_mu={fed_mu} mTECU/km\n"
               f"\tfed_sigma={fed_sigma} mTECU/km")
 
-    return MultiLayerTomographicKernel(x0=x0, earth_centre=earth_centre, widths=widths, bottoms=bottoms,
-                                       wind_velocities=wind_velocities,
-                                       fed_mus=fed_mus,
-                                       fed_kernels=fed_kernels,
+    return MultiLayerTomographicKernel(x0=x0, earth_centre=earth_centre, width=widths, bottom=bottoms,
+                                       wind_velocity=wind_velocities,
+                                       fed_mu=fed_mus,
+                                       fed_kernel=fed_kernels,
                                        compute_tec=True, S_marg=S_marg)
 
 

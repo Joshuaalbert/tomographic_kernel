@@ -78,12 +78,14 @@ class TomographicKernel:
         raise NotImplementedError()
 
 
-class SingleLayerTomographicKernel(TomographicKernel):
+class MultiLayerTomographicKernel(TomographicKernel):
     def __init__(self, x0: jnp.ndarray, earth_centre: jnp.ndarray,
-                 bottom: jnp.ndarray, width: jnp.ndarray,
-                 fed_kernel: tfp.math.psd_kernels.PositiveSemidefiniteKernel,
-                 fed_mu: jnp.ndarray,
-                 wind_velocity: Optional[jnp.ndarray] = None,
+                 bottom: List[jnp.ndarray] | jnp.ndarray,
+                 width: List[jnp.ndarray] | jnp.ndarray,
+                 fed_kernel: tfp.math.psd_kernels.PositiveSemidefiniteKernel | List[
+                     tfp.math.psd_kernels.PositiveSemidefiniteKernel],
+                 fed_mu: List[jnp.ndarray] | jnp.ndarray,
+                 wind_velocity: Optional[List[jnp.ndarray] | jnp.ndarray] = None,
                  S_marg: int = 25, compute_tec: bool = False):
         """
         Tomographic model with curved thick layer above the Earth.
@@ -103,9 +105,18 @@ class SingleLayerTomographicKernel(TomographicKernel):
         self.earth_centre = earth_centre
         self.fed_kernel = fed_kernel
         self.compute_tec = compute_tec
+        self.bottom, self.width, self.wind_velocity, self.fed_kernel, self.fed_mu = self.broadcast_lists(
+            bottom, width, wind_velocity, fed_kernel, fed_mu
+        )
 
-        self.cov_func = self.build_cov_func(bottom=bottom, width=width, wind_velocity=wind_velocity)
-        self.mean_func = self.build_mean_func(bottom, width, fed_mu, wind_velocity=wind_velocity)
+        self.cov_func = self.build_cov_func()
+        self.mean_func = self.build_mean_func()
+
+    def broadcast_lists(self, *objs):
+        objs = list(map(lambda obj: obj if isinstance(obj, list) else [obj], objs))
+        max_len = max(map(len, objs))
+        objs = tuple(map(lambda obj: obj * max_len if len(obj) != max_len else obj, objs))
+        return objs
 
     def compute_integration_limits_flat(self, x: jnp.ndarray, k: jnp.ndarray, bottom: jnp.ndarray,
                                         width: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
@@ -159,16 +170,9 @@ class SingleLayerTomographicKernel(TomographicKernel):
         smax = -dxk + jnp.sqrt(dxk ** 2 + (top_radius2 - dx2))
         return smin, smax
 
-    def build_cov_func(self, bottom: jnp.ndarray, width: jnp.ndarray, wind_velocity: Optional[jnp.ndarray] = None):
+    def build_cov_func(self):
         """
-        Construct a callable that returns the TEC kernel function.
-
-        Args:
-            bottom: ionosphere layer bottom in km
-            width: ionosphere layer width in km
-            fed_sigma: variation scaling in mTECU/km, or 10^10 electron/m^3
-            fed_kernel_params: dict of FED kernel parameters
-                Typically a lengthscale and scaling parameter, but perhaps more.
+        Construct a callable that returns the tomographic kernel function.
 
         Returns:
             callable(x1:[N,3],k1:[N,3],x2:[M,3],k2:[M,3]) -> [N, M]
@@ -187,7 +191,7 @@ class SingleLayerTomographicKernel(TomographicKernel):
             t = jnp.linspace(0., 1., self.S_marg + 1)
             return jnp.sum(vmap(f)(t), axis=0) * (1. / self.S_marg)
 
-        def build_geodesic(x, k, t):
+        def build_geodesic(x, k, t, bottom, width, wind_velocity):
             """
             Convert observation coordinates to a geodesic callable.
 
@@ -220,23 +224,41 @@ class SingleLayerTomographicKernel(TomographicKernel):
             Returns:
                 scalar
             """
-            g1, ds1 = build_geodesic(X1.x, X1.k, X1.t)
-            g1_ref, ds1_ref = build_geodesic(X1.ref_x, X1.k, X1.t)
-            g2, ds2 = build_geodesic(X2.x, X2.k, X2.t)
-            g2_ref, ds2_ref = build_geodesic(X2.ref_x, X2.k, X2.t)
 
-            def f(epsilon_1, epsilon_2):
-                results = (ds1 * ds2) * self.fed_kernel.matrix(g1(epsilon_1)[None], g2(epsilon_2)[None])
-                if not self.compute_tec:
-                    results += (ds1_ref * ds2_ref) * self.fed_kernel.matrix(g1_ref(epsilon_1)[None],
-                                                                            g2_ref(epsilon_2)[None])
-                    results -= (ds1 * ds2_ref) * self.fed_kernel.matrix(g1(epsilon_1)[None], g2_ref(epsilon_2)[None])
-                    results -= (ds1_ref * ds2) * self.fed_kernel.matrix(g1_ref(epsilon_1)[None], g2(epsilon_2)[None])
-                return results[0, 0]
+            def create_integrand_single_layer(bottom, width, wind_velocity, fed_kernel):
+                g1, ds1 = build_geodesic(X1.x, X1.k, X1.t, bottom=bottom, width=width, wind_velocity=wind_velocity)
+                g2, ds2 = build_geodesic(X2.x, X2.k, X2.t, bottom=bottom, width=width, wind_velocity=wind_velocity)
+                if self.compute_tec:
+                    g1_ref, ds1_ref = build_geodesic(X1.ref_x, X1.k, X1.t, bottom=bottom, width=width,
+                                                     wind_velocity=wind_velocity)
+                    g2_ref, ds2_ref = build_geodesic(X2.ref_x, X2.k, X2.t, bottom=bottom, width=width,
+                                                     wind_velocity=wind_velocity)
 
-            # print(f"Mid-point separation: {jnp.linalg.norm(g1(0.5) - g2(0.5))}")
+                # print(f"Mid-point separation: {jnp.linalg.norm(g1(0.5) - g2(0.5))}")
 
-            return ray_integral(lambda epsilon_2: ray_integral(lambda epsilon_1: f(epsilon_1, epsilon_2)))
+                def f(epsilon_1, epsilon_2):
+                    results = (ds1 * ds2) * fed_kernel.matrix(g1(epsilon_1)[None], g2(epsilon_2)[None])
+                    if not self.compute_tec:
+                        results += (ds1_ref * ds2_ref) * fed_kernel.matrix(g1_ref(epsilon_1)[None],
+                                                                           g2_ref(epsilon_2)[None])
+                        results -= (ds1 * ds2_ref) * fed_kernel.matrix(g1(epsilon_1)[None],
+                                                                       g2_ref(epsilon_2)[None])
+                        results -= (ds1_ref * ds2) * fed_kernel.matrix(g1_ref(epsilon_1)[None],
+                                                                       g2(epsilon_2)[None])
+                    return results[0, 0]
+
+                return f
+
+            def complete_integrand(epsilon_1, epsilon_2):
+                output = []
+                for bottom, width, wind_velocity, fed_kernel in zip(self.bottom, self.width, self.wind_velocity,
+                                                                    self.fed_kernel):
+                    f = create_integrand_single_layer(bottom, width, wind_velocity, fed_kernel)
+                    output.append(f(epsilon_1, epsilon_2))
+                return sum(output[1:], output[0])
+
+            return ray_integral(
+                lambda epsilon_2: ray_integral(lambda epsilon_1: complete_integrand(epsilon_1, epsilon_2)))
 
         def Kxy(X1: GeodesicTuple, X2: GeodesicTuple) -> jnp.ndarray:
             """
@@ -276,8 +298,7 @@ class SingleLayerTomographicKernel(TomographicKernel):
 
         return cov_func
 
-    def build_mean_func(self, bottom: jnp.ndarray, width: jnp.ndarray, fed_mu: jnp.ndarray,
-                        wind_velocity: Optional[jnp.ndarray]):
+    def build_mean_func(self):
         """
         Computes the intersection with ionosphere, and multiplies by constant FED mean.
         This depends on the geometry of the ionosphere.
@@ -292,16 +313,23 @@ class SingleLayerTomographicKernel(TomographicKernel):
             callable(x:[N,3],k:[N,3],t:[N]) -> [N]
         """
 
-        def geodesic_intersection(x, k, t):
+        def geodesic_intersection(x, k, t, bottom, width):
             smin, smax = self.compute_integration_limits(x, k, bottom, width)
             return (smax - smin)
 
-        def layer_intersection(X1: GeodesicTuple):
-            ds1 = geodesic_intersection(X1.x, X1.k, X1.t)
-            if self.compute_tec:
-                return ds1
-            ds1_ref = geodesic_intersection(X1.ref_x, X1.k, X1.t)
-            return ds1 - ds1_ref
+        def single_layer_intersection(X1: GeodesicTuple, bottom, width, fed_mu):
+            ds1 = geodesic_intersection(X1.x, X1.k, X1.t, bottom=bottom, width=width)
+            intersection = ds1
+            if not self.compute_tec:
+                ds1_ref = geodesic_intersection(X1.ref_x, X1.k, X1.t, bottom=bottom, width=width)
+                intersection - ds1_ref
+            return fed_mu * intersection
+
+        def complete_intersection(X1: GeodesicTuple):
+            output = []
+            for bottom, width, fed_mu in zip(self.bottom, self.width, self.fed_mu):
+                output.append(single_layer_intersection(X1, bottom=bottom, width=width, fed_mu=fed_mu))
+            return sum(output[1:], output[0])
 
         def mean_func(X1: GeodesicTuple):
             """
@@ -314,7 +342,7 @@ class SingleLayerTomographicKernel(TomographicKernel):
                 mean along the geodesic
             """
             X1 = GeodesicTuple(*broadcast_leading_dim(*X1))
-            return fed_mu * vmap(layer_intersection)(X1)
+            return vmap(complete_intersection)(X1)
 
         return mean_func
 
@@ -394,35 +422,3 @@ def test_frozen_flow_transform():
     bottom = 300.
     wind_velocity = jnp.asarray([-0.240, 0.030, 0.])
     print(frozen_flow_transform(t, y, x0, bottom, earth_centre=earth_centre, wind_velocity=wind_velocity))
-
-
-class MultiLayerTomographicKernel(TomographicKernel):
-    def __init__(self, x0: jnp.ndarray, earth_centre: jnp.ndarray,
-                 bottoms: List[jnp.ndarray], widths: List[jnp.ndarray],
-                 fed_kernels: List[tfp.math.psd_kernels.PositiveSemidefiniteKernel],
-                 fed_mus: List[jnp.ndarray],
-                 wind_velocities: List[Optional[jnp.ndarray]] = None,
-                 S_marg: int = 25, compute_tec: bool = True):
-        self.x0 = x0
-        self.earth_centre = earth_centre
-        self.layer_kernels = []
-        for bottom, width, fed_mu, wind_velocity, fed_kernel in zip(bottoms, widths, fed_mus, wind_velocities,
-                                                                    fed_kernels):
-            self.layer_kernels.append(SingleLayerTomographicKernel(x0=x0,
-                                                                   earth_centre=earth_centre,
-                                                                   bottom=bottom, width=width,
-                                                                   fed_kernel=fed_kernel,
-                                                                   fed_mu=fed_mu,
-                                                                   wind_velocity=wind_velocity,
-                                                                   S_marg=S_marg,
-                                                                   compute_tec=compute_tec))
-
-        assert len(self.layer_kernels) > 0
-
-    def mean_func(self, X1: GeodesicTuple) -> jnp.ndarray:
-        layer_means = list(map(lambda layer: layer.mean_func(X1=X1), self.layer_kernels))
-        return sum(layer_means[1:], layer_means[0])
-
-    def cov_func(self, X1: GeodesicTuple, X2: Optional[GeodesicTuple] = None) -> jnp.ndarray:
-        layer_covs = list(map(lambda layer: layer.cov_func(X1=X1, X2=X2), self.layer_kernels))
-        return sum(layer_covs[1:], layer_covs[0])
