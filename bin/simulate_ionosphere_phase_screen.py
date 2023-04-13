@@ -382,21 +382,13 @@ class Simulation(object):
         plt.savefig("dtec_variance_hist.pdf")
         plt.close('all')
 
-        jitter = 1e-6
 
         @jit
-        def cholesky_simulate(key):
+        def cholesky_simulate(key, jitter):
             Z = random.normal(key, (cov.shape[0], 1), dtype=cov.dtype)
             L = jnp.linalg.cholesky(cov + jitter * jnp.eye(cov.shape[0]))
             dtec = (L @ Z + mean[:, None])[:, 0].reshape((Nt, Na, Nd)).transpose((2, 1, 0))
             is_nans = jnp.any(jnp.isnan(L))
-            return is_nans, dtec
-
-        def cholesky_simulate_np(key):
-            Z = random.normal(key, (cov.shape[0], 1), dtype=cov.dtype)
-            L = np.linalg.cholesky(cov + jitter * np.eye(cov.shape[0]))
-            dtec = (L @ Z + mean[:, None])[:, 0].reshape((Nt, Na, Nd)).transpose((2, 1, 0))
-            is_nans = np.any(np.isnan(L))
             return is_nans, dtec
 
         @jit
@@ -408,17 +400,19 @@ class Simulation(object):
             return max_eig, min_eig, is_nans, dtec
 
         t0 = default_timer()
+        jitter = 1e-6
         logger.info(f"Computing Cholesky with jitter: {jitter}")
         logger.info(f"Jitter: {jitter} adds equivalent of {jnp.sqrt(jitter)} mTECU white noise to simulated DTEC.")
-        is_nans, dtec = cholesky_simulate(random.PRNGKey(42))
+        is_nans, dtec = cholesky_simulate(random.PRNGKey(42), jitter)
         is_nans.block_until_ready()
         logger.info(f"Cholesky-based simulation took {default_timer() - t0} seconds.")
         if is_nans:
+            jitter = 0.5 ** 2
             logger.info("Numerically instable. Using numpy cholesky.")
             t0 = default_timer()
             logger.info(f"Computing Cholesky with jitter: {jitter}")
             logger.info(f"Jitter: {jitter} adds equivalent of {jnp.sqrt(jitter)} mTECU white noise to simulated DTEC.")
-            is_nans, dtec = cholesky_simulate_np(random.PRNGKey(42))
+            is_nans, dtec = cholesky_simulate(random.PRNGKey(42), jitter)
             logger.info(f"Cholesky-based simulation took {default_timer() - t0} seconds.")
         if is_nans:
             t0 = default_timer()
@@ -428,8 +422,8 @@ class Simulation(object):
             logger.info(f"SVD-based simulation took {default_timer() - t0} seconds.")
             logger.info(f"Condition: {max_eig / min_eig}, minimum/maximum singular values {min_eig}, {max_eig}")
             if is_nans:
-                raise ValueError("Covariance matrix is too numerically instable.")
-        dtec -= dtec[:, 0:1, :]
+                raise ValueError("Covariance matrix is too numerically unstable.")
+        # dtec -= dtec[:, 0:1, :]
         logger.info(f"Saving result to {output_h5parm}")
         with dp:
             dp.current_solset = 'sol000'
