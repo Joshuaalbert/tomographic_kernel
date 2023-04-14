@@ -1,8 +1,9 @@
 import argparse
 import logging
 import sys
-from typing import Literal
+from typing import Literal, Tuple
 
+import astropy
 import tensorflow_probability.substrates.jax as tfp
 
 from tomographic_kernel.frames import ENU
@@ -68,11 +69,26 @@ def get_num_directions(avg_spacing, field_of_view_diameter, min_n=1):
     return n
 
 
+def h5parm_to_np(h5parm: str) -> Tuple[np.ndarray, astropy.time.Time, astropy.coordinates.ITRS]:
+    with DataPack(h5parm, readonly=True) as dp:
+        print("Axes order:", dp.axes_order)
+        dp.current_solset = 'sol000'
+        dp.select()
+        phase, axes = dp.phase
+        phase = phase[0]  # remove pol axis
+        antenna_labels, antennas = dp.get_antennas(axes['ant'])
+        timestamps, times = dp.get_times(axes['time'])
+
+    return phase, times, antennas
+
+
 def visualisation(h5parm, ant=None, time=None):
     with DataPack(h5parm, readonly=True) as dp:
         dp.current_solset = 'sol000'
         dp.select(ant=ant, time=time, dir=0)
+        print("Axes order:", dp.axes_order)
         dtec, axes = dp.tec
+        phase, axes = dp.phase
         dtec = dtec[0]  # remove pol axis
         patch_names, directions = dp.get_directions(axes['dir'])
         antenna_labels, antennas = dp.get_antennas(axes['ant'])
@@ -382,7 +398,6 @@ class Simulation(object):
         plt.savefig("dtec_variance_hist.pdf")
         plt.close('all')
 
-
         @jit
         def cholesky_simulate(key, jitter):
             Z = random.normal(key, (cov.shape[0], 1), dtype=cov.dtype)
@@ -423,7 +438,8 @@ class Simulation(object):
             logger.info(f"Condition: {max_eig / min_eig}, minimum/maximum singular values {min_eig}, {max_eig}")
             if is_nans:
                 raise ValueError("Covariance matrix is too numerically unstable.")
-        # dtec -= dtec[:, 0:1, :]
+        logger.info(f"Referencing antenna: {antenna_labels[0]}")
+        dtec -= dtec[:, 0:1, :]
         logger.info(f"Saving result to {output_h5parm}")
         with dp:
             dp.current_solset = 'sol000'
