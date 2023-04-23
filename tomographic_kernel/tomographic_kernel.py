@@ -228,7 +228,7 @@ class MultiLayerTomographicKernel(TomographicKernel):
             def create_integrand_single_layer(bottom, width, wind_velocity, fed_kernel):
                 g1, ds1 = build_geodesic(X1.x, X1.k, X1.t, bottom=bottom, width=width, wind_velocity=wind_velocity)
                 g2, ds2 = build_geodesic(X2.x, X2.k, X2.t, bottom=bottom, width=width, wind_velocity=wind_velocity)
-                if self.compute_tec:
+                if not self.compute_tec:
                     g1_ref, ds1_ref = build_geodesic(X1.ref_x, X1.k, X1.t, bottom=bottom, width=width,
                                                      wind_velocity=wind_velocity)
                     g2_ref, ds2_ref = build_geodesic(X2.ref_x, X2.k, X2.t, bottom=bottom, width=width,
