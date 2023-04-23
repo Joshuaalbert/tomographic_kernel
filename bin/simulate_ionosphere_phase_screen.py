@@ -145,6 +145,19 @@ def build_ionosphere_tomographic_kernel(x0: jnp.ndarray, earth_centre: jnp.ndarr
             wind_velocities = [jnp.asarray([-0.200, 0.030, 0.])]
         else:
             wind_velocities = [jnp.asarray([-0.200, -0.030, 0.])]
+    elif specification == 'light_dawn':  # E, F layers
+        bottoms = [90., 250.]  # km
+        widths = [10., 100.]  # km
+        fed_mus = [1e10 * 1e-10, 1e11 * 1e-10]  # 1E10 [electron / m^3]
+        fed_sigmas = [fed_mus[0] * 0.1, fed_mus[1] * 0.1]  # 1E10 [electron / m^3]
+        fed_ls = [0.5, 5.]  # km
+
+        fed_kernels = [tfp.math.psd_kernels.MaternThreeHalves(amplitude=fed_sigma, length_scale=fed_l)
+                       for fed_sigma, fed_l in zip(fed_sigmas, fed_ls)]
+        if northern_hemisphere:
+            wind_velocities = [jnp.asarray([-0.200, 0.030, 0.]), jnp.asarray([-0.300, 0.030, 0.])]
+        else:
+            wind_velocities = [jnp.asarray([-0.200, -0.030, 0.]), jnp.asarray([-0.300, -0.030, 0.])]
     elif specification == 'dawn':  # E, F layers
         bottoms = [90., 150.]  # km
         widths = [10., 100.]  # km
@@ -211,11 +224,15 @@ def build_ionosphere_tomographic_kernel(x0: jnp.ndarray, earth_centre: jnp.ndarr
               f"\tfed_mu={fed_mu} mTECU/km\n"
               f"\tfed_sigma={fed_sigma} mTECU/km")
 
-    return MultiLayerTomographicKernel(x0=x0, earth_centre=earth_centre, width=widths, bottom=bottoms,
+    return MultiLayerTomographicKernel(x0=x0,
+                                       earth_centre=earth_centre,
+                                       width=widths,
+                                       bottom=bottoms,
                                        wind_velocity=wind_velocities,
                                        fed_mu=fed_mus,
                                        fed_kernel=fed_kernels,
-                                       compute_tec=True, S_marg=S_marg)
+                                       compute_tec=False,
+                                       S_marg=S_marg)
 
 
 class Simulation(object):
@@ -324,7 +341,6 @@ class Simulation(object):
         x0 = ac.ITRS(*antennas[0].cartesian.xyz, obstime=ref_time).transform_to(ref_frame).cartesian.xyz.to(au.km).value
         earth_centre_x = ac.ITRS(x=0 * au.m, y=0 * au.m, z=0. * au.m, obstime=ref_time).transform_to(
             ref_frame).cartesian.xyz.to(au.km).value
-        # TODO: potentially use M32 for more dawn-like ionosphere.
 
         northern_hemisphere = ref_ant.earth_location.geodetic.lat.value > 0
 
