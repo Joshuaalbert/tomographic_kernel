@@ -1,5 +1,6 @@
 import argparse
 import logging
+import re
 import sys
 from typing import Literal, Tuple
 
@@ -235,6 +236,61 @@ def build_ionosphere_tomographic_kernel(x0: jnp.ndarray, earth_centre: jnp.ndarr
                                        S_marg=S_marg)
 
 
+def extract_bbs_format(text):
+    pattern = r'\((.*?)\)'
+    matches = re.findall(pattern, text)
+    if matches:
+        return [field.strip() for field in matches[0].split(',')]
+    else:
+        return []
+
+
+def parse_coordinates(ra_str, dec_str):
+    try:
+        ra = ra_str.strip()
+        dec = dec_str.strip()
+
+        ra_parts = ra.split(':')
+        ra_str = ' '.join(ra_parts)
+
+        dec_parts = dec.split('.')
+        if len(dec_parts) == 4:
+            dec_parts[-1] = '.'.join(dec_parts[-2:])
+            dec_parts = dec_parts[:-1]
+        dec_str = ' '.join(dec_parts)
+
+        coord = ac.SkyCoord(ra_str, dec_str, unit=(au.hourangle, au.deg), frame='icrs')
+        return coord
+    except ValueError:
+        print("Invalid coordinate string.")
+        return None
+
+
+def directions_from_sky_model(sky_model: str) -> ac.ICRS:
+    data = []
+    format = None
+    with open(sky_model, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if (line == ''):
+                continue
+            if line.startswith("#") and line.endswith('format'):
+                format = extract_bbs_format(line)
+                continue
+            data.append(list(map(lambda s: s.strip(), line.split(','))))
+    if format is None:
+        raise ValueError(f'Could not find format in sky model {sky_model}')
+    if 'Ra' not in format:
+        raise ValueError(f"Could not find 'Ra' in format {format}.")
+    if 'Dec' not in format:
+        raise ValueError(f"Could not find 'Dec' in format {format}.")
+    ra_idx = format.index('Ra')
+    dec_idx = format.index('Dec')
+    directions = list(map(lambda d: parse_coordinates(d[ra_idx], d[dec_idx]), data))
+    directions = ac.concatenate(directions)
+    return directions
+
+
 class Simulation(object):
     def __init__(self,
                  specification: Literal['dawn', 'dusk', 'dawn_challenge', 'dusk_challenge'],
@@ -272,6 +328,11 @@ class Simulation(object):
             phase_tracking: `astropy.coordinates.ICRS` of phase tracking centre
             S_marg: int, resolution of tomographic kernel.
         """
+        directions = None
+        if sky_model is not None:
+            directions = directions_from_sky_model(sky_model)
+            Nd = len(directions)
+
         if Nd is None:
             Nd = get_num_directions(avg_direction_spacing, field_of_view_diameter)
         Nt = max(1, int(duration / time_resolution) + 1)
@@ -285,6 +346,7 @@ class Simulation(object):
                                    array_file=ARRAYS[array_name],
                                    phase_tracking=(phase_tracking.ra.deg, phase_tracking.dec.deg),
                                    save_name=output_h5parm,
+                                   directions=directions,
                                    clobber=True)
 
         with dp:
