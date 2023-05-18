@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup_requires = [
     'numpy',
-    'h5parm>=0.0.10',
+    'h5parm>=1.0.4',
     'scipy',
     'astropy',
     'matplotlib',

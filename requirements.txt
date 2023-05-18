@@ -1,5 +1,5 @@
 numpy
-h5parm>=1.0.1
+h5parm>=1.0.4
 scipy
 astropy
 matplotlib
