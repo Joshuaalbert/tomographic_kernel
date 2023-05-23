@@ -296,7 +296,7 @@ def test_grid_coordiates():
 class Simulation(object):
     def __init__(self,
                  specification: SPECIFICATION,
-                 S_marg: int = 25, compute_tec: bool = False):
+                 S_marg: int = 25):
         """
         Simulation of DTEC.
 
@@ -307,7 +307,6 @@ class Simulation(object):
         """
         self.specification = specification
         self.S_marg = S_marg
-        self.compute_tec = compute_tec
 
     def run(self, output_h5parm: str, avg_direction_spacing: float, field_of_view_diameter: float,
             duration: float,
@@ -419,7 +418,7 @@ class Simulation(object):
         mean, cov = compute_representation(
             specification=self.specification,
             S_marg=self.S_marg,
-            compute_tec=self.compute_tec,
+            compute_tec=True,
             antennas=antennas,
             directions=directions,
             times=times,
@@ -451,6 +450,9 @@ class Simulation(object):
             Na=Na,
             Nd=Nd
         )
+
+        # Reference against reference antenna
+        dtec -= dtec[:,0:1,:] # Nd, Na, Nt
 
         logger.info(f"Saving result to {dp_grid.filename}")
         with dp_grid:
