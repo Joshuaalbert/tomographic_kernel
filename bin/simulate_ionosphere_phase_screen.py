@@ -27,7 +27,7 @@ def main(output_h5parm, ncpu, phase_tracking,
     """
     os.environ["XLA_FLAGS"] = f"--xla_force_host_platform_device_count={ncpu}"
 
-    sim = Simulation(specification=specification, S_marg=S_marg, compute_tec=False)
+    sim = Simulation(specification=specification, S_marg=S_marg)
     sim.run(output_h5parm=output_h5parm, avg_direction_spacing=avg_direction_spacing,
             field_of_view_diameter=field_of_view_diameter, duration=duration, time_resolution=time_resolution,
             start_time=start_time, array_name=array_name, phase_tracking=phase_tracking,
