@@ -311,7 +311,7 @@ class Simulation(object):
 
     def run(self, output_h5parm: str, avg_direction_spacing: float, field_of_view_diameter: float,
             duration: float,
-            time_resolution: float,
+            time_resolution: float, grid_res_m: float,
             start_time, array_name, phase_tracking: ac.ICRS, min_freq: float = 700., max_freq: float = 2000.,
             Nf: int = 2, sky_model: str | None = None,
             Nd: int | None = None,
@@ -358,7 +358,7 @@ class Simulation(object):
                                   clobber=clobber)
         # Grid the array
         _, antennas = load_array_file(ARRAYS[array_name])
-        antennas_grid = grid_coordinates(coords=antennas, dx=200.)  # 1.5km grid
+        antennas_grid = grid_coordinates(coords=antennas, dx=grid_res_m)  # 1.5km grid
         antennas_grid = ac.ITRS(x=antennas_grid[:, 0] * au.m, y=antennas_grid[:, 1] * au.m,
                                 z=antennas_grid[:, 2] * au.m)
         gridded_array_name = f"{ARRAYS[array_name]}.gridded"

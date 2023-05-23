@@ -21,7 +21,7 @@ def main(output_h5parm, ncpu, phase_tracking,
          array_name, start_time, time_resolution, duration,
          field_of_view_diameter, avg_direction_spacing,
          S_marg,
-         specification, min_freq, max_freq, Nf, sky_model, Nd):
+         specification, min_freq, max_freq, Nf, sky_model, Nd, grid_res_m):
     """
     Run the simulator.
     """
@@ -32,7 +32,7 @@ def main(output_h5parm, ncpu, phase_tracking,
             field_of_view_diameter=field_of_view_diameter, duration=duration, time_resolution=time_resolution,
             start_time=start_time, array_name=array_name, phase_tracking=phase_tracking,
             min_freq=min_freq, max_freq=max_freq, Nf=Nf,
-            sky_model=sky_model, Nd=Nd)
+            sky_model=sky_model, Nd=Nd, grid_res_m=grid_res_m)
 
 
 def debug_main():
@@ -43,6 +43,7 @@ def debug_main():
          array_name='dsa2000W',
          start_time=at.Time('2019-03-19T19:58:14.9', format='isot'),
          time_resolution=15.,
+         grid_res_m=300.,
          duration=45.,
          field_of_view_diameter=4.,
          avg_direction_spacing=10000.,
@@ -93,6 +94,9 @@ def add_args(parser):
     parser.add_argument('--Nd',
                         help=f'Optional number directions, in which case we wont compute from avg_direction_spacing.',
                         default=None, type=int, required=False)
+    parser.add_argument('--grid_res_m',
+                        help=f'Resolution of grid.',
+                        default=500., type=float, required=False)
 
 
 if __name__ == '__main__':
