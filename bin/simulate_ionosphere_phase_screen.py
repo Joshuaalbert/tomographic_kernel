@@ -37,23 +37,25 @@ def main(output_h5parm, ncpu, phase_tracking,
 
 def debug_main():
     phase_tracking = ac.SkyCoord("00h00m0.0s", "+37d07m47.400s", frame='icrs')
-    main(output_h5parm='dsa2000W_2000m_datapack.h5',
-         ncpu=6,
-         phase_tracking=phase_tracking,
-         array_name='dsa2000W',
-         start_time=at.Time('2019-03-19T19:58:14.9', format='isot'),
-         time_resolution=15.,
-         grid_res_m=300.,
-         duration=45.,
-         field_of_view_diameter=4.,
-         avg_direction_spacing=10000.,
-         S_marg=15,
-         specification='simple',
-         min_freq=700.,
-         max_freq=2000.,
-         Nf=2,
-         sky_model=None,
-         Nd=None)
+    main(
+        output_h5parm='dsa2000W_2000m_datapack.h5',
+        ncpu=6,
+        phase_tracking=phase_tracking,
+        array_name='dsa2000W',
+        start_time=at.Time('2019-03-19T19:58:14.9', format='isot'),
+        time_resolution=15.,
+        grid_res_m=300.,
+        duration=45.,
+        field_of_view_diameter=4.,
+        avg_direction_spacing=10000.,
+        S_marg=15,
+        specification='simple',
+        min_freq=700.,
+        max_freq=2000.,
+        Nf=2,
+        sky_model=None,
+        Nd=None
+    )
 
 
 def add_args(parser):

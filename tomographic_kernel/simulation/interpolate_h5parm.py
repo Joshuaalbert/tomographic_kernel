@@ -148,7 +148,7 @@ def make_coords(antennas: ac.ITRS, directions: ac.ICRS, times: at.Time):
     directions = map_spherical_to_plane(directions=directions)
     times = times.mjd * 86400.
     times -= times[0]
-    X = make_coord_array(directions, antennas, times[:,None])
+    X = make_coord_array(directions, antennas, times[:, None])
     return X
 
 
@@ -165,9 +165,6 @@ def interpolate_h5parm(input_h5parm: str, output_h5parm: str, k: int = 3):
         assert dp.axes_order == ['pol', 'dir', 'ant', 'freq', 'time']
         dp.current_solset = 'sol000'
         dp.select(pol=slice(0, 1, 1))
-        _, axes = dp.phase
-        _, freqs = dp.get_freqs(axes['freq'])
-        freqs = freqs.to('Hz').value
         tec_grid, axes = dp.tec
         tec_grid = tec_grid[0]  # remove pol
         tec_grid_flat = tec_grid.flatten()
@@ -179,8 +176,8 @@ def interpolate_h5parm(input_h5parm: str, output_h5parm: str, k: int = 3):
         assert dp.axes_order == ['pol', 'dir', 'ant', 'freq', 'time']
         dp.current_solset = 'sol000'
         dp.select(pol=slice(0, 1, 1))
-        tec, axes = dp.tec
-        tec_shape = tec.shape
+        axes = dp.axes_phase
+        _, freqs = dp.get_freqs(axes['freq'])
         _, directions = dp.get_directions(axes['dir'])
         _, antennas = dp.get_antennas(axes['ant'])
         _, times = dp.get_times(axes['time'])
@@ -203,9 +200,10 @@ def interpolate_h5parm(input_h5parm: str, output_h5parm: str, k: int = 3):
     else:  # inverse distance weighted
         weights = 1.0 / dist  # [N, K]
         tec_flat = np.sum(weights * tec_grid_flat[ind], axis=1) / np.sum(weights, axis=1)
+    tec = tec_flat.reshape((1, len(directions), len(antennas), len(times)))
     logger.info("Storing results.")
     with DataPack(output_h5parm, readonly=False) as dp:
         dp.current_solset = 'sol000'
         dp.select(pol=slice(0, 1, 1))
-        dp.tec = tec_flat.reshape(tec_shape)
-        dp.phase = wrap(tec[..., None, :] * (TEC_CONV / freqs[:, None]))
+        dp.tec = tec
+        dp.phase = np.asarray(wrap(tec[..., None, :] * (TEC_CONV / freqs.to('Hz').value[:, None])))

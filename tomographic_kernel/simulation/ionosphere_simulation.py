@@ -452,14 +452,14 @@ class Simulation(object):
         )
 
         # Reference against reference antenna
-        dtec -= dtec[:,0:1,:] # Nd, Na, Nt
+        dtec -= dtec[:, 0:1, :]  # Nd, Na, Nt
 
         logger.info(f"Saving result to {dp_grid.filename}")
         with dp_grid:
             dp_grid.current_solset = 'sol000'
             dp_grid.select(pol=slice(0, 1, 1))
             dp_grid.tec = np.asarray(dtec[None])
-            phase = wrap(dtec[..., None, :] * (TEC_CONV / freqs[:, None]))
+            phase = wrap(dtec[..., None, :] * (TEC_CONV / freqs.to('Hz').value[:, None]))
             dp_grid.phase = np.asarray(phase[None])
 
         # Interpolate to output h5parm
