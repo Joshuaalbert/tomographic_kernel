@@ -9,7 +9,7 @@ import numpy as np
 import pylab as plt
 from h5parm import DataPack
 from h5parm.datapack import load_array_file, save_array_file
-from h5parm.utils import directions_from_sky_model, create_empty_datapack
+from h5parm.utils import directions_from_sky_model, create_empty_datapack, format_direction_bbs
 from jax import numpy as jnp, tree_map, jit, random, devices
 from tqdm import tqdm
 
@@ -393,10 +393,8 @@ class Simulation(object):
                 f"# (Name,Type,Ra,Dec,I, ReferenceFrequency='{str(0.5 * (min_freq + max_freq))}e6', SpectralIndex='[0.0]') = format\n")
             for patch_name, direction in zip(patch_names, directions):
                 # 3C196, POINT, 08:13:36.062300, +48.13.02.24900, 153.0, , [-0.56, -0.05212]
-                f.write(f"{patch_name.decode()}, POINT, "
-                        f"{direction.ra.to_string(unit=au.hour, alwayssign=False, sep=':', pad=True, precision=6)}, "
-                        f"{direction.dec.to_string(unit=au.degree, alwayssign=True, sep='.', pad=True, precision=5)}, "
-                        f"1.0, , \n")
+                ra_str, dec_str = format_direction_bbs(direction)
+                f.write(f"{patch_name.decode()}, POINT, {ra_str}, {dec_str}, 1.0, , \n")
 
         Na = len(antennas)
         Nd = len(directions)
