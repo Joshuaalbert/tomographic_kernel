@@ -9,4 +9,3 @@ jax
 jaxlib
 tables
 tensorflow_probability
-pytest
