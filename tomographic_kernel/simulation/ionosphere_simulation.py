@@ -1,6 +1,6 @@
 import logging
 from timeit import default_timer
-from typing import Tuple
+from typing import Tuple, Union
 
 import astropy.coordinates as ac
 import astropy.time as at
@@ -312,8 +312,8 @@ class Simulation(object):
             duration: float,
             time_resolution: float, grid_res_m: float,
             start_time, array_name, phase_tracking: ac.ICRS, min_freq: float = 700., max_freq: float = 2000.,
-            Nf: int = 2, sky_model: str | None = None,
-            Nd: int | None = None,
+            Nf: int = 2, sky_model: Union[str, None] = None,
+            Nd: Union[int, None] = None,
             clobber: bool = True):
         """
         Launch the simulation.

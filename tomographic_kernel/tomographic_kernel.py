@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import NamedTuple, Tuple, Optional, List
+from typing import NamedTuple, Tuple, Optional, List, Union
 
 import jax.numpy as jnp
 import tensorflow_probability.substrates.jax as tfp
@@ -80,12 +80,12 @@ class TomographicKernel:
 
 class MultiLayerTomographicKernel(TomographicKernel):
     def __init__(self, x0: jnp.ndarray, earth_centre: jnp.ndarray,
-                 bottom: List[jnp.ndarray] | jnp.ndarray,
-                 width: List[jnp.ndarray] | jnp.ndarray,
-                 fed_kernel: tfp.math.psd_kernels.PositiveSemidefiniteKernel | List[
-                     tfp.math.psd_kernels.PositiveSemidefiniteKernel],
-                 fed_mu: List[jnp.ndarray] | jnp.ndarray,
-                 wind_velocity: Optional[List[jnp.ndarray] | jnp.ndarray] = None,
+                 bottom: Union[List[jnp.ndarray], jnp.ndarray],
+                 width: Union[List[jnp.ndarray], jnp.ndarray],
+                 fed_kernel: Union[tfp.math.psd_kernels.PositiveSemidefiniteKernel, List[
+                     tfp.math.psd_kernels.PositiveSemidefiniteKernel]],
+                 fed_mu: Union[List[jnp.ndarray], jnp.ndarray],
+                 wind_velocity: Optional[Union[List[jnp.ndarray], jnp.ndarray]] = None,
                  S_marg: int = 25, compute_tec: bool = False):
         """
         Tomographic model with curved thick layer above the Earth.
