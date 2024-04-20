@@ -1,62 +1,179 @@
 import numpy as np
+import pytest
 from astropy import time as at, coordinates as ac, units as au
 
 from tomographic_kernel.frames import ENU
 
-dist_type = au.km
+
+@pytest.mark.parametrize("array_centre", [
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Centre of the Earth
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=90. * au.deg, height=0. * au.m),  # North Pole
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=-90. * au.deg, height=0. * au.m),  # South Pole
+])
+@pytest.mark.parametrize("unit", [au.dimensionless_unscaled, au.km])
+def test_altaz_to_enu(array_centre: ac.EarthLocation, unit: au.Unit):
+    # Define the time and location of the array
+    obstime = at.Time("2019-03-19T19:58:14.9", format='isot')
+    enu_frame = ENU(obstime=obstime, location=array_centre)
+
+    # Test Zenith direction
+    zenith = ac.AltAz(az=0. * au.deg, alt=90. * au.deg, distance=1 * unit, location=array_centre, obstime=obstime)
+    coords_enu = zenith.transform_to(enu_frame)
+    np.testing.assert_allclose(coords_enu.north, 0. * unit, atol=1e-6)
+    np.testing.assert_allclose(coords_enu.east, 0. * unit, atol=1e-6)
+    np.testing.assert_allclose(coords_enu.up, 1. * unit, atol=1e-6)
+
+    # Test East direction
+    east = ac.AltAz(az=90. * au.deg, alt=0. * au.deg, distance=1 * unit, location=array_centre, obstime=obstime)
+    coords_enu = east.transform_to(enu_frame)
+    np.testing.assert_allclose(coords_enu.north, 0. * unit, atol=1e-6)
+    np.testing.assert_allclose(coords_enu.east, 1. * unit, atol=1e-6)
+    np.testing.assert_allclose(coords_enu.up, 0. * unit, atol=1e-6)
+
+    # Test North direction
+    north = ac.AltAz(az=0. * au.deg, alt=0. * au.deg, distance=1 * unit, location=array_centre, obstime=obstime)
+    coords_enu = north.transform_to(enu_frame)
+    np.testing.assert_allclose(coords_enu.north, 1. * unit, atol=1e-6)
+    np.testing.assert_allclose(coords_enu.east, 0. * unit, atol=1e-6)
+    np.testing.assert_allclose(coords_enu.up, 0. * unit, atol=1e-6)
+
+    # Test South direction
+    south = ac.AltAz(az=180. * au.deg, alt=0. * au.deg, distance=1 * unit, location=array_centre, obstime=obstime)
+    coords_enu = south.transform_to(enu_frame)
+    np.testing.assert_allclose(coords_enu.north, -1. * unit, atol=1e-6)
+    np.testing.assert_allclose(coords_enu.east, 0. * unit, atol=1e-6)
+    np.testing.assert_allclose(coords_enu.up, 0. * unit, atol=1e-6)
+
+    # Test West direction
+    west = ac.AltAz(az=270. * au.deg, alt=0. * au.deg, distance=1 * unit, location=array_centre, obstime=obstime)
+    coords_enu = west.transform_to(enu_frame)
+    np.testing.assert_allclose(coords_enu.north, 0. * unit, atol=1e-6)
+    np.testing.assert_allclose(coords_enu.east, -1. * unit, atol=1e-6)
+    np.testing.assert_allclose(coords_enu.up, 0. * unit, atol=1e-6)
 
 
-def test_enu():
-    lofar_array = np.random.normal(size=[10, 3])
-    antennas = lofar_array[1]
-    obstime = at.Time("2018-01-01T00:00:00.000", format='isot')
-    location = ac.ITRS(x=antennas[0, 0] * dist_type, y=antennas[0, 1] * dist_type, z=antennas[0, 2] * dist_type)
-    enu = ENU(obstime=obstime, location=location.earth_location)
-    altaz = ac.AltAz(obstime=obstime, location=location.earth_location)
-    lofar_antennas = ac.ITRS(x=antennas[:, 0] * dist_type, y=antennas[:, 1] * dist_type, z=antennas[:, 2] * dist_type,
-                             obstime=obstime)
-    assert np.all(np.linalg.norm(lofar_antennas.transform_to(enu).cartesian.xyz.to(dist_type).value, axis=0) < 100.)
-    assert np.all(np.isclose(lofar_antennas.transform_to(enu).cartesian.xyz.to(dist_type).value,
-                             lofar_antennas.transform_to(enu).transform_to(altaz).transform_to(enu).cartesian.xyz.to(
-                                 dist_type).value))
-    assert np.all(np.isclose(lofar_antennas.transform_to(altaz).cartesian.xyz.to(dist_type).value,
-                             lofar_antennas.transform_to(altaz).transform_to(enu).transform_to(altaz).cartesian.xyz.to(
-                                 dist_type).value))
-    north_enu = ac.SkyCoord(east=0., north=1., up=0., frame=enu)
-    north_altaz = ac.SkyCoord(az=0 * au.deg, alt=0 * au.deg, distance=1., frame=altaz)
-    assert np.all(np.isclose(
-        north_enu.transform_to(altaz).cartesian.xyz.value, north_altaz.cartesian.xyz.value))
-    assert np.all(np.isclose(
-        north_enu.cartesian.xyz.value, north_altaz.transform_to(enu).cartesian.xyz.value))
-    east_enu = ac.SkyCoord(east=1., north=0., up=0., frame=enu)
-    east_altaz = ac.SkyCoord(az=90 * au.deg, alt=0 * au.deg, distance=1., frame=altaz)
-    assert np.all(np.isclose(
-        east_enu.transform_to(altaz).cartesian.xyz.value, east_altaz.cartesian.xyz.value))
-    assert np.all(np.isclose(
-        east_enu.cartesian.xyz.value, east_altaz.transform_to(enu).cartesian.xyz.value))
-    up_enu = ac.SkyCoord(east=0., north=0., up=1., frame=enu)
-    up_altaz = ac.SkyCoord(az=0 * au.deg, alt=90 * au.deg, distance=1., frame=altaz)
-    assert np.all(np.isclose(
-        up_enu.transform_to(altaz).cartesian.xyz.value, up_altaz.cartesian.xyz.value))
-    assert np.all(np.isclose(
-        up_enu.cartesian.xyz.value, up_altaz.transform_to(enu).cartesian.xyz.value))
-    ###
-    # dimensionful
-    north_enu = ac.SkyCoord(east=0. * dist_type, north=1. * dist_type, up=0. * dist_type, frame=enu)
-    north_altaz = ac.SkyCoord(az=0 * au.deg, alt=0 * au.deg, distance=1. * dist_type, frame=altaz)
-    assert np.all(np.isclose(
-        north_enu.transform_to(altaz).cartesian.xyz.to(dist_type).value, north_altaz.cartesian.xyz.to(dist_type).value))
-    assert np.all(np.isclose(
-        north_enu.cartesian.xyz.to(dist_type).value, north_altaz.transform_to(enu).cartesian.xyz.to(dist_type).value))
-    east_enu = ac.SkyCoord(east=1. * dist_type, north=0. * dist_type, up=0. * dist_type, frame=enu)
-    east_altaz = ac.SkyCoord(az=90 * au.deg, alt=0 * au.deg, distance=1. * dist_type, frame=altaz)
-    assert np.all(np.isclose(
-        east_enu.transform_to(altaz).cartesian.xyz.to(dist_type).value, east_altaz.cartesian.xyz.to(dist_type).value))
-    assert np.all(np.isclose(
-        east_enu.cartesian.xyz.to(dist_type).value, east_altaz.transform_to(enu).cartesian.xyz.to(dist_type).value))
-    up_enu = ac.SkyCoord(east=0. * dist_type, north=0. * dist_type, up=1. * dist_type, frame=enu)
-    up_altaz = ac.SkyCoord(az=0 * au.deg, alt=90 * au.deg, distance=1. * dist_type, frame=altaz)
-    assert np.all(np.isclose(
-        up_enu.transform_to(altaz).cartesian.xyz.to(dist_type).value, up_altaz.cartesian.xyz.to(dist_type).value))
-    assert np.all(np.isclose(
-        up_enu.cartesian.xyz.to(dist_type).value, up_altaz.transform_to(enu).cartesian.xyz.to(dist_type).value))
+@pytest.mark.parametrize("array_centre", [
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Centre of the Earth
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=90. * au.deg, height=0. * au.m),  # North Pole
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=-90. * au.deg, height=0. * au.m),  # South Pole
+])
+@pytest.mark.parametrize("unit", [au.dimensionless_unscaled, au.km])
+def test_enu_to_altaz(array_centre: ac.EarthLocation, unit: au.Unit):
+    # Define the time and location of the array
+    obstime = at.Time("2019-03-19T19:58:14.9", format='isot')
+    altaz_frame = ac.AltAz(obstime=obstime, location=array_centre)
+
+    # Test Zenith direction
+    zenith = ENU(north=0. * unit, east=0. * unit, up=1 * unit, location=array_centre, obstime=obstime)
+    coords_altaz = zenith.transform_to(altaz_frame)
+    np.testing.assert_allclose(coords_altaz.az, 0. * au.deg, atol=1e-6)
+    np.testing.assert_allclose(coords_altaz.alt, 90. * au.deg, atol=1e-6)
+    np.testing.assert_allclose(coords_altaz.distance, 1 * unit, atol=1e-6)
+
+    # Test East direction
+    east = ENU(north=0. * unit, east=1. * unit, up=0 * unit, location=array_centre, obstime=obstime)
+    coords_altaz = east.transform_to(altaz_frame)
+    np.testing.assert_allclose(coords_altaz.az, 90. * au.deg, atol=1e-6)
+    np.testing.assert_allclose(coords_altaz.alt, 0. * au.deg, atol=1e-6)
+    np.testing.assert_allclose(coords_altaz.distance, 1 * unit, atol=1e-6)
+
+    # Test North direction
+    north = ENU(north=1. * unit, east=0. * unit, up=0 * unit, location=array_centre, obstime=obstime)
+    coords_altaz = north.transform_to(altaz_frame)
+    np.testing.assert_allclose(coords_altaz.az, 0. * au.deg, atol=1e-6)
+    np.testing.assert_allclose(coords_altaz.alt, 0. * au.deg, atol=1e-6)
+    np.testing.assert_allclose(coords_altaz.distance, 1 * unit, atol=1e-6)
+
+    # Test South direction
+    south = ENU(north=-1. * unit, east=0. * unit, up=0 * unit, location=array_centre, obstime=obstime)
+    coords_altaz = south.transform_to(altaz_frame)
+    np.testing.assert_allclose(coords_altaz.az, 180. * au.deg, atol=1e-6)
+    np.testing.assert_allclose(coords_altaz.alt, 0. * au.deg, atol=1e-6)
+    np.testing.assert_allclose(coords_altaz.distance, 1 * unit, atol=1e-6)
+
+    # Test West direction
+    west = ENU(north=0. * unit, east=-1. * unit, up=0 * unit, location=array_centre, obstime=obstime)
+    coords_altaz = west.transform_to(altaz_frame)
+    np.testing.assert_allclose(coords_altaz.az, 270. * au.deg, atol=1e-6)
+    np.testing.assert_allclose(coords_altaz.alt, 0. * au.deg, atol=1e-6)
+    np.testing.assert_allclose(coords_altaz.distance, 1 * unit, atol=1e-6)
+
+
+@pytest.mark.parametrize("to_array_centre", [
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Centre of the Earth
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=90. * au.deg, height=0. * au.m),  # North Pole
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=-90. * au.deg, height=0. * au.m),  # South Pole
+])
+@pytest.mark.parametrize("from_array_centre", [
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Centre of the Earth
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=90. * au.deg, height=0. * au.m),  # North Pole
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=-90. * au.deg, height=0. * au.m),  # South Pole
+])
+@pytest.mark.parametrize("from_time", [
+    at.Time("2019-03-19T19:58:14.9", format='isot'),
+    at.Time("2020-03-19T19:58:14.9", format='isot'),
+])
+@pytest.mark.parametrize("to_time", [
+    at.Time("2019-03-19T19:58:14.9", format='isot'),
+    at.Time("2020-03-19T19:58:14.9", format='isot'),
+])
+@pytest.mark.parametrize("unit", [au.dimensionless_unscaled, au.km])
+def test_enu_to_enu(from_array_centre: ac.EarthLocation,
+                    to_array_centre: ac.EarthLocation,
+                    from_time: at.Time,
+                    to_time: at.Time,
+                    unit: au.Unit):
+    # Transform from one to the other, and back, and get the same result
+
+    # Test Zenith direction
+    zenith = ENU(north=0. * unit, east=0. * unit, up=1 * unit, location=from_array_centre, obstime=from_time)
+    zenith_to = zenith.transform_to(ENU(location=to_array_centre, obstime=to_time))
+    zenith_return = zenith_to.transform_to(ENU(location=from_array_centre, obstime=from_time))
+    np.testing.assert_allclose(zenith.north, zenith_return.north, atol=1e-6)
+    np.testing.assert_allclose(zenith.east, zenith_return.east, atol=1e-6)
+    np.testing.assert_allclose(zenith.up, zenith_return.up, atol=1e-6)
+
+    # Test East direction
+    east = ENU(north=0. * unit, east=1. * unit, up=0 * unit, location=from_array_centre, obstime=from_time)
+    east_to = east.transform_to(ENU(location=to_array_centre, obstime=to_time))
+    east_return = east_to.transform_to(ENU(location=from_array_centre, obstime=from_time))
+    np.testing.assert_allclose(east.north, east_return.north, atol=1e-6)
+    np.testing.assert_allclose(east.east, east_return.east, atol=1e-6)
+    np.testing.assert_allclose(east.up, east_return.up, atol=1e-6)
+
+    # Test North direction
+    north = ENU(north=1. * unit, east=0. * unit, up=0 * unit, location=from_array_centre, obstime=from_time)
+    north_to = north.transform_to(ENU(location=to_array_centre, obstime=to_time))
+    north_return = north_to.transform_to(ENU(location=from_array_centre, obstime=from_time))
+    np.testing.assert_allclose(north.north, north_return.north, atol=1e-6)
+    np.testing.assert_allclose(north.east, north_return.east, atol=1e-6)
+    np.testing.assert_allclose(north.up, north_return.up, atol=1e-6)
+
+    # Test South direction
+    south = ENU(north=-1. * unit, east=0. * unit, up=0 * unit, location=from_array_centre, obstime=from_time)
+    south_to = south.transform_to(ENU(location=to_array_centre, obstime=to_time))
+    south_return = south_to.transform_to(ENU(location=from_array_centre, obstime=from_time))
+    np.testing.assert_allclose(south.north, south_return.north, atol=1e-6)
+    np.testing.assert_allclose(south.east, south_return.east, atol=1e-6)
+    np.testing.assert_allclose(south.up, south_return.up, atol=1e-6)
+
+    # Test West direction
+    west = ENU(north=0. * unit, east=-1. * unit, up=0 * unit, location=from_array_centre, obstime=from_time)
+    west_to = west.transform_to(ENU(location=to_array_centre, obstime=to_time))
+    west_return = west_to.transform_to(ENU(location=from_array_centre, obstime=from_time))
+    np.testing.assert_allclose(west.north, west_return.north, atol=1e-6)
+    np.testing.assert_allclose(west.east, west_return.east, atol=1e-6)
+    np.testing.assert_allclose(west.up, west_return.up, atol=1e-6)
+
+
+@pytest.mark.parametrize("array_centre", [
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Centre of the Earth
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=90. * au.deg, height=0. * au.m),  # North Pole
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=-90. * au.deg, height=0. * au.m),  # South Pole
+])
+def test_earth_centre(array_centre: ac.EarthLocation):
+    obstime = at.Time("2019-03-19T19:58:14.9", format='isot')
+    # earth location
+    earth_centre = ac.EarthLocation.from_geocentric(x=0 * au.m, y=0 * au.m, z=0 * au.m).get_itrs(obstime=obstime)
+    coords_enu = earth_centre.transform_to(ENU(location=array_centre, obstime=obstime))
+    print(coords_enu)

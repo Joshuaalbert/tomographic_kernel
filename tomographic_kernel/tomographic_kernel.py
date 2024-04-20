@@ -355,18 +355,6 @@ def rotate_vector(y, rotation_axis, angle):
     return rotated_y
 
 
-def test_rotate_vector():
-    x = jnp.asarray([1., 0., 0.])
-    y = jnp.asarray([0., 1., 0.])
-    z = jnp.asarray([0., 0., 1.])
-    angle = jnp.pi / 2.
-    assert jnp.allclose(rotate_vector(x, z, angle), y, atol=1e-6)
-    assert jnp.allclose(rotate_vector(x, y, angle), -z, atol=1e-6)
-    assert jnp.allclose(rotate_vector(z, y, angle), x, atol=1e-6)
-    assert jnp.allclose(rotate_vector(y, x, angle), z, atol=1e-6)
-    assert not jnp.any(jnp.isnan(rotate_vector(y, jnp.asarray([0, 0, 0]), angle)))
-
-
 def frozen_flow_transform(t, y, x0, bottom, earth_centre, wind_velocity=None) -> jnp.ndarray:
     """
     Computes the frozen flow transform on the coordinates.
@@ -406,19 +394,31 @@ def frozen_flow_transform(t, y, x0, bottom, earth_centre, wind_velocity=None) ->
     return rotated_y
 
 
-def test_frozen_flow_transform():
-    earth_centre = jnp.asarray([0., 0., 0.])
-    t = 0.
-    y = jnp.asarray([0., 0., 6400.])
-    x0 = y
-    bottom = 300.
-    wind_velocity = jnp.asarray([-0.240, 0.030, 0.])
-    assert jnp.allclose(y,
-                        frozen_flow_transform(t, y, x0, bottom, earth_centre=earth_centre, wind_velocity=wind_velocity))
+def mean_square_difference(X1: GeodesicTuple, X2: GeodesicTuple, kernel: MultiLayerTomographicKernel):
+    """
+    Compute the mean square difference of the underlying between two points, i.e.
 
-    t = 60
-    y = jnp.asarray([0., 0., 6400.])
-    x0 = jnp.asarray([0., 100., 6400.])
-    bottom = 300.
-    wind_velocity = jnp.asarray([-0.240, 0.030, 0.])
-    print(frozen_flow_transform(t, y, x0, bottom, earth_centre=earth_centre, wind_velocity=wind_velocity))
+        E[(DTEC(X1) - DTEC(X2))^2] if the kernel is a DTEC kernel.
+
+    or
+
+        E[(TEC(X1) - TEC(X2))^2] if the kernel is a TEC kernel.
+
+    Args:
+        X1: the first point (GeodesicTuple) of shape [M]
+        X2: the second point (GeodesicTuple) of shape [N]
+        kernel: the kernel
+
+    Returns:
+        the mean square difference of the underlying between X1 and X2 [M, N]
+    """
+    var_1 = jnp.diag(kernel.cov_func(X1, X1))  # [M]
+    var_2 = jnp.diag(kernel.cov_func(X2, X2))  # [N]
+    mu_1 = kernel.mean_func(X1)  # [M]
+    mu_2 = kernel.mean_func(X2)  # [N]
+    cov_12 = kernel.cov_func(X1, X2)  # [M, N]
+    return (
+            var_1[:, None] + mu_1[:, None] ** 2
+            - 2. * (cov_12 + mu_1[:, None] * mu_2[None, :])
+            + var_2[None, :] + mu_2[None, :] ** 2
+    )
