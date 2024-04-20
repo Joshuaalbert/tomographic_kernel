@@ -7,13 +7,12 @@ install_requires = [
     'numpy',
     'h5parm>=1.0.5',
     'scipy',
-    'astropy',
+    'astropy>=6',
     'matplotlib',
     'cmocean',
     'tqdm',
     'jax',
     'jaxlib',
-    'tables',
     'tensorflow_probability'
 ]
 
@@ -21,7 +20,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='tomographic_kernel',
-      version='1.0.1',
+      version='1.0.2',
       description='A Tomographic Kernel in JAX for tomographic Gaussian processes.',
       long_description=long_description,
       long_description_content_type="text/markdown",

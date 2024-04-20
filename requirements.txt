@@ -1,11 +1,10 @@
 numpy
 h5parm>=1.0.7
 scipy
-astropy
+astropy>=6
 matplotlib
 cmocean
 tqdm
 jax
 jaxlib
-tables
 tensorflow_probability
