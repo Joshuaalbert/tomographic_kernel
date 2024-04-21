@@ -53,20 +53,24 @@ def altaz_to_enu(altaz_coo: AltAz, enu_frame: ENU):
     '''Defines the transformation between AltAz and the ENU frame.
     AltAz usually has units attached but ENU does not require units
     if it specifies a direction.'''
-    rep = CartesianRepresentation(x=altaz_coo.cartesian.y,
-                                  y=altaz_coo.cartesian.x,
-                                  z=altaz_coo.cartesian.z,
+    intermediate_altaz_frame = AltAz(location=enu_frame.location, obstime=enu_frame.obstime)
+    intermediate_altaz_coo = altaz_coo.transform_to(intermediate_altaz_frame)
+    rep = CartesianRepresentation(x=intermediate_altaz_coo.cartesian.y,
+                                  y=intermediate_altaz_coo.cartesian.x,
+                                  z=intermediate_altaz_coo.cartesian.z,
                                   copy=False)
     return enu_frame.realize_frame(rep)
 
 
 @frame_transform_graph.transform(FunctionTransform, ENU, AltAz)
 def enu_to_altaz(enu_coo: ENU, altaz_frame: AltAz):
+    intermediate_altaz_frame = AltAz(location=enu_coo.location, obstime=enu_coo.obstime)
     rep = CartesianRepresentation(x=enu_coo.north,
                                   y=enu_coo.east,
                                   z=enu_coo.up,
                                   copy=False)
-    return altaz_frame.realize_frame(rep)
+    intermediate_altaz_coo = intermediate_altaz_frame.realize_frame(rep)
+    return intermediate_altaz_coo.transform_to(altaz_frame)
 
 
 @frame_transform_graph.transform(FunctionTransform, ENU, ENU)
