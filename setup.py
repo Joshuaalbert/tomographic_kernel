@@ -20,7 +20,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='tomographic_kernel',
-      version='1.0.2',
+      version='1.0.3',
       description='A Tomographic Kernel in JAX for tomographic Gaussian processes.',
       long_description=long_description,
       long_description_content_type="text/markdown",
