@@ -177,3 +177,26 @@ def test_earth_centre(array_centre: ac.EarthLocation):
     earth_centre = ac.EarthLocation.from_geocentric(x=0 * au.m, y=0 * au.m, z=0 * au.m).get_itrs(obstime=obstime)
     coords_enu = earth_centre.transform_to(ENU(location=array_centre, obstime=obstime))
     print(coords_enu)
+    np.testing.assert_allclose(coords_enu.up, -6360 * au.km, atol=20*au.km)
+
+
+@pytest.mark.parametrize("array_centre", [
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Centre of the Earth
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=90. * au.deg, height=0. * au.m),  # North Pole
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=-90. * au.deg, height=0. * au.m),  # South Pole
+])
+@pytest.mark.parametrize("unit", [au.dimensionless_unscaled, au.km])
+def test_enu_to_itrs(array_centre: ac.EarthLocation, unit: au.Unit):
+    obstime = at.Time("2019-03-19T19:58:14.9", format='isot')
+
+    # Test Zenith direction
+    zenith_altaz = ac.AltAz(az=0. * au.deg, alt=90. * au.deg, distance=1 * unit, location=array_centre, obstime=obstime)
+    zenith_enus = zenith_altaz.transform_to(ENU(location=array_centre, obstime=obstime))
+    zenith_itrs = zenith_enus.transform_to(ac.ITRS(obstime=obstime))
+    zenith_via_altaz = zenith_altaz.transform_to(ac.ITRS(obstime=obstime))
+
+    print(zenith_itrs)
+    print(zenith_via_altaz)
+
+    np.testing.assert_allclose(zenith_itrs.cartesian.xyz, zenith_via_altaz.cartesian.xyz, atol=1e-6)
+
