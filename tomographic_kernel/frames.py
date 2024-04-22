@@ -59,6 +59,7 @@ def altaz_to_enu(altaz_coo: AltAz, enu_frame: ENU):
                                   y=intermediate_altaz_coo.cartesian.x,
                                   z=intermediate_altaz_coo.cartesian.z,
                                   copy=False)
+
     return enu_frame.realize_frame(rep)
 
 

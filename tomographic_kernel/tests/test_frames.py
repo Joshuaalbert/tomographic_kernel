@@ -6,7 +6,7 @@ from tomographic_kernel.frames import ENU
 
 
 @pytest.mark.parametrize("array_centre", [
-    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Centre of the Earth
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Equator
     ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=90. * au.deg, height=0. * au.m),  # North Pole
     ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=-90. * au.deg, height=0. * au.m),  # South Pole
 ])
@@ -53,7 +53,7 @@ def test_altaz_to_enu(array_centre: ac.EarthLocation, unit: au.Unit):
 
 
 @pytest.mark.parametrize("array_centre", [
-    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Centre of the Earth
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Equator
     ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=90. * au.deg, height=0. * au.m),  # North Pole
     ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=-90. * au.deg, height=0. * au.m),  # South Pole
 ])
@@ -100,12 +100,12 @@ def test_enu_to_altaz(array_centre: ac.EarthLocation, unit: au.Unit):
 
 
 @pytest.mark.parametrize("to_array_centre", [
-    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Centre of the Earth
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Equator
     ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=90. * au.deg, height=0. * au.m),  # North Pole
     ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=-90. * au.deg, height=0. * au.m),  # South Pole
 ])
 @pytest.mark.parametrize("from_array_centre", [
-    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Centre of the Earth
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Equator
     ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=90. * au.deg, height=0. * au.m),  # North Pole
     ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=-90. * au.deg, height=0. * au.m),  # South Pole
 ])
@@ -167,7 +167,7 @@ def test_enu_to_enu(from_array_centre: ac.EarthLocation,
 
 
 @pytest.mark.parametrize("array_centre", [
-    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Centre of the Earth
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Equator
     ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=90. * au.deg, height=0. * au.m),  # North Pole
     ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=-90. * au.deg, height=0. * au.m),  # South Pole
 ])
@@ -177,11 +177,11 @@ def test_earth_centre(array_centre: ac.EarthLocation):
     earth_centre = ac.EarthLocation.from_geocentric(x=0 * au.m, y=0 * au.m, z=0 * au.m).get_itrs(obstime=obstime)
     coords_enu = earth_centre.transform_to(ENU(location=array_centre, obstime=obstime))
     print(coords_enu)
-    np.testing.assert_allclose(coords_enu.up, -6360 * au.km, atol=20*au.km)
+    np.testing.assert_allclose(coords_enu.up, -6360 * au.km, atol=20 * au.km)
 
 
 @pytest.mark.parametrize("array_centre", [
-    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Centre of the Earth
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Equator
     ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=90. * au.deg, height=0. * au.m),  # North Pole
     ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=-90. * au.deg, height=0. * au.m),  # South Pole
 ])
@@ -200,3 +200,16 @@ def test_enu_to_itrs(array_centre: ac.EarthLocation, unit: au.Unit):
 
     np.testing.assert_allclose(zenith_itrs.cartesian.xyz, zenith_via_altaz.cartesian.xyz, atol=1e-6)
 
+
+@pytest.mark.parametrize("array_centre", [
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m),  # Equator
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=90. * au.deg, height=0. * au.m),  # North Pole
+    ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=-90. * au.deg, height=0. * au.m),  # South Pole
+])
+def test_enu_of_array_centre_should_be_zero(array_centre: ac.EarthLocation):
+    obstime = at.Time("2019-03-19T19:58:14.9", format='isot')
+    enu_frame = ENU(obstime=obstime, location=array_centre)
+    array_centre_enu = array_centre.get_itrs(obstime=obstime, location=array_centre).transform_to(enu_frame)
+    np.testing.assert_allclose(array_centre_enu.east, 0. * au.m, atol=1e-6)
+    np.testing.assert_allclose(array_centre_enu.north, 0. * au.m, atol=1e-6)
+    np.testing.assert_allclose(array_centre_enu.up, 0. * au.m, atol=1e-6)
