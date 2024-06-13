@@ -213,3 +213,20 @@ def test_enu_of_array_centre_should_be_zero(array_centre: ac.EarthLocation):
     np.testing.assert_allclose(array_centre_enu.east, 0. * au.m, atol=1e-6)
     np.testing.assert_allclose(array_centre_enu.north, 0. * au.m, atol=1e-6)
     np.testing.assert_allclose(array_centre_enu.up, 0. * au.m, atol=1e-6)
+
+
+def test_vector_location():
+    locations = ac.EarthLocation.from_geodetic(lon=[0., 0., 0.] * au.deg,
+                                               lat=[0., 90., -90.] * au.deg,
+                                               height=[0., 0., 0.] * au.m)
+    time = at.Time("2019-03-19T19:58:14.9", format='isot')
+    zenith = ENU(up=1, east=0, north=0, obstime=time, location=locations)
+    assert zenith.shape == (3,)
+
+def test_sep_3d():
+    location = ac.EarthLocation.from_geodetic(lon=0. * au.deg, lat=0. * au.deg, height=0. * au.m)
+    time = at.Time("2019-03-19T19:58:14.9", format='isot')
+    loc1 = ENU(up=0, east=0, north=0, obstime=time, location=location)
+    loc2 = ENU(up=0, east=0, north=1, obstime=time, location=location)
+    sep = loc1.cartesian.xyz - loc2.cartesian.xyz
+    print(sep)

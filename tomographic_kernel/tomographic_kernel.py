@@ -178,6 +178,8 @@ class MultiLayerTomographicKernel(TomographicKernel):
             callable(x1:[N,3],k1:[N,3],x2:[M,3],k2:[M,3]) -> [N, M]
         """
 
+        s = jnp.linspace(0., 1., self.S_marg + 1)
+
         def ray_integral(f):
             """
             Integrates a function of a scalar variable over [0,1].
@@ -188,8 +190,7 @@ class MultiLayerTomographicKernel(TomographicKernel):
             Returns:
                 integral over [0,1]
             """
-            t = jnp.linspace(0., 1., self.S_marg + 1)
-            return jnp.sum(vmap(f)(t), axis=0) * (1. / self.S_marg)
+            return jnp.sum(vmap(f)(s), axis=0) * (1. / self.S_marg)
 
         def build_geodesic(x, k, t, bottom, width, wind_velocity):
             """
@@ -277,7 +278,7 @@ class MultiLayerTomographicKernel(TomographicKernel):
                 K = vmap(lambda X2: integrate_integrand(tree_map(lambda x: x[0], X1), X2))(X2)
                 return K[None]
             else:
-                return scan_vmap(lambda X1: vmap(lambda X2: integrate_integrand(X1, X2))(X2))(X1)
+                return vmap(lambda X1: vmap(lambda X2: integrate_integrand(X1, X2))(X2))(X1)
 
         def cov_func(X1: GeodesicTuple, X2: Optional[GeodesicTuple] = None):
             """
@@ -302,12 +303,6 @@ class MultiLayerTomographicKernel(TomographicKernel):
         """
         Computes the intersection with ionosphere, and multiplies by constant FED mean.
         This depends on the geometry of the ionosphere.
-
-        Args:
-            bottom: bottom of ionosphere in km
-            width: width of ionosphere in km
-            fed_mu: variation scaling in mTECU/km, or 10^10 electron/m^3
-            wind_velocity: in East-North-Up frame
 
         Returns:
             callable(x:[N,3],k:[N,3],t:[N]) -> [N]
